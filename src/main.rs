@@ -9,18 +9,21 @@
 use std::env;
 use std::str::FromStr;
 
+use chrono::Utc;
 use futures::future::{self, Future};
 use getopts::Options;
-use hyper::{Body, Request, Response, Server, Uri};
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
-use chrono::Utc;
+use hyper::{Body, Request, Response, Server, Uri};
 
-type BoxFut = Box<dyn Future<Item=Response<Body>, Error=hyper::Error> + Send>;
+type BoxFut = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
 fn debug_request(req: Request<Body>) -> BoxFut {
     let body_str = format!("{:?}", req);
-    let response = Response::builder().header("Content-Type", "text/plain; charset=utf-8").body(Body::from(body_str)).unwrap();
+    let response = Response::builder()
+        .header("Content-Type", "text/plain; charset=utf-8")
+        .body(Body::from(body_str))
+        .unwrap();
     Box::new(future::ok(response))
 }
 
@@ -36,7 +39,8 @@ fn redirect(url: &str) -> BoxFut {
 fn not_found() -> BoxFut {
     let response = Response::builder()
         .status(404)
-        .body(Body::from("
+        .body(Body::from(
+            "
             <!DOCTYPE html>
             <html>
             <head>
@@ -54,7 +58,8 @@ fn not_found() -> BoxFut {
             <p>Sorry, the page you are looking for cannot be found</p>
             </body>
             </html>
-        "))
+        ",
+        ))
         .unwrap();
     Box::new(future::ok(response))
 }
@@ -124,7 +129,7 @@ fn main() {
     });
 
     // This is our socket address...
-    let addr = ([127, 0, 0, 1], port).into();
+    let addr = ([0, 0, 0, 0], port).into();
 
     // A `Service` is needed for every connection.
     let make_svc = make_service_fn(move |socket: &AddrStream| {
@@ -144,11 +149,22 @@ fn main() {
                     ),
                     None => format!("{}", req.uri().path().replace(source_prefix.as_str(), "/")),
                 };
-                println!("[{}] {} Proxy {}{}", Utc::now(), request_uri, target_url, forward_uri);
+                println!(
+                    "[{}] {} Proxy {}{}",
+                    Utc::now(),
+                    request_uri,
+                    target_url,
+                    forward_uri
+                );
                 *req.uri_mut() = Uri::from_str(forward_uri.as_str()).unwrap();
                 hyper_reverse_proxy::call(remote_addr.ip(), target_url.as_str(), req)
             } else if req.uri().path().eq(source_match.as_str()) {
-                println!("[{}] {} HTTP/301 Location: {}", Utc::now(), req.uri(), source_prefix);
+                println!(
+                    "[{}] {} HTTP/301 Location: {}",
+                    Utc::now(),
+                    req.uri(),
+                    source_prefix
+                );
                 redirect(source_prefix.as_str())
             } else {
                 if req.headers().contains_key("X-Proxy-Debug") {

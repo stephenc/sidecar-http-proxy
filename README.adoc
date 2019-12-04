@@ -1,0 +1,23 @@
+= sidecar-http-proxy
+
+== Sidecar HTTP Proxy
+
+This is a super simple sidecar HTTP proxy written in Rust. 
+It is designed to be used as a sidecar for rewriting requests so that you can have an ingress controller agnostic Kubernetes Pod where the webapp in the main pod is not able to modify its context root.
+
+----
+Usage: sidecar-http-proxy [options]
+
+Options:
+    -h, --help          print this help menu and exit
+    -V, --version       print the version and exit
+    -p, --port PORT     the port to listen for requests on (default: 8080)
+    -t, --target-url URL
+                        the target base URL to proxy
+    -s, --source-path PATH
+                        the source path to remove from requests before
+                        forwarding to the target (default: /)
+
+
+Proxies requests to a remote service (with optional path prefix stripping)
+----

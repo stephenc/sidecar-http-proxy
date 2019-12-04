@@ -1,0 +1,12 @@
+[package]
+name = "sidecar-http-proxy"
+version = "0.1.0"
+authors = ["Stephen Connolly <sconnolly@cloudbees.com>"]
+edition = "2018"
+
+[dependencies]
+hyper-reverse-proxy = "0.4"
+hyper = "0.12"
+futures = "0.1"
+getopts = "0.2"
+chrono = "0.4.10"

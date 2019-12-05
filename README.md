@@ -15,6 +15,8 @@ Options:
     -s, --source-path PATH
                         the source path to remove from requests before
                         forwarding to the target (default: /)
+    -c, --cache-control VALUE
+                        the cache control header to inject if none is provided
 
 
 Proxies requests to a remote service (with optional path prefix stripping)

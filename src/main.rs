@@ -12,9 +12,10 @@ use std::str::FromStr;
 use chrono::Utc;
 use futures::future::{self, Future};
 use getopts::Options;
+use hyper::header::HeaderValue;
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Request, Response, Server, Uri};
+use hyper::{Body, HeaderMap, Request, Response, Server, Uri};
 
 type BoxFut = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
@@ -81,6 +82,12 @@ fn create_options() -> Options {
         "the source path to remove from requests before forwarding to the target (default: /)",
         "PATH",
     );
+    opts.optopt(
+        "c",
+        "cache-control",
+        "the cache control header to inject if none is provided",
+        "VALUE",
+    );
     opts
 }
 
@@ -119,7 +126,7 @@ fn main() {
     };
 
     let target: Box<String> = Box::from(match matches.opt_str("t") {
-        Some(v) => v,
+        Some(v) => v.trim_end_matches('/').to_string(),
         None => panic!("You must provide the target URL"),
     });
 
@@ -127,6 +134,11 @@ fn main() {
         Some(v) => v.trim_matches('/').to_string(),
         None => "".to_string(),
     });
+
+    let cache: Option<Box<String>> = match matches.opt_str("c") {
+        Some(v) => Option::Some(Box::from(v)),
+        None => Option::None,
+    };
 
     // This is our socket address...
     let addr = ([0, 0, 0, 0], port).into();
@@ -137,6 +149,10 @@ fn main() {
         let source_match = format!("/{}", source.clone());
         let source_prefix = format!("/{}/", source.clone());
         let remote_addr = socket.remote_addr();
+        let cache_control = match &cache {
+            Some(v) => Some(v.clone()),
+            _ => None,
+        };
         service_fn(move |mut req: Request<Body>| {
             // returns BoxFut
             if req.uri().path().starts_with(source_prefix.as_str()) {
@@ -157,7 +173,24 @@ fn main() {
                     forward_uri
                 );
                 *req.uri_mut() = Uri::from_str(forward_uri.as_str()).unwrap();
-                hyper_reverse_proxy::call(remote_addr.ip(), target_url.as_str(), req)
+                let future = hyper_reverse_proxy::call(remote_addr.ip(), target_url.as_str(), req);
+                match &cache_control {
+                    Some(value) => {
+                        let header_value = HeaderValue::from_str(value.clone().as_str()).unwrap();
+                        Box::new(future.map(|mut r| {
+                            if !r.headers().contains_key("Cache-Control") {
+                                let mut headers = HeaderMap::new();
+                                for (k, v) in r.headers().iter() {
+                                    headers.insert(k.clone(), v.clone());
+                                }
+                                headers.insert("Cache-Control", header_value);
+                                *r.headers_mut() = headers;
+                            }
+                            r
+                        }))
+                    }
+                    _ => future,
+                }
             } else if req.uri().path().eq(source_match.as_str()) {
                 println!(
                     "[{}] {} HTTP/301 Location: {}",

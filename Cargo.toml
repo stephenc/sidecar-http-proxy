@@ -1,6 +1,6 @@
 [package]
 name = "sidecar-http-proxy"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Stephen Connolly <sconnolly@cloudbees.com>"]
 edition = "2018"
 
